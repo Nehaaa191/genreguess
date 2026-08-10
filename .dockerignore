@@ -1,0 +1,9 @@
+data/raw/
+data/processed/
+notebooks/
+tests/
+__pycache__/
+*.pyc
+.git/
+.ipynb_checkpoints/
+reports/
