@@ -73,10 +73,19 @@ def standardize_spectrogram(log_mel_spec: np.ndarray) -> np.ndarray:
 def process_audio_file(filepath: str) -> np.ndarray:
     """
     End-to-end preprocessing pipeline for a single audio file.
-    Output shape: (128, T) where T is approx 1250 (depends on hop_length).
+    Output shape: (128, T) where T is strictly enforced to 1250.
     """
     waveform = load_and_crop_audio(filepath)
     waveform = normalize_amplitude(waveform)
     log_mel_spec = compute_mel_spectrogram(waveform)
     norm_spec = standardize_spectrogram(log_mel_spec)
+    
+    # Enforce exact temporal dimension to avoid dataloader collation errors
+    TARGET_FRAMES = 1250
+    if norm_spec.shape[1] > TARGET_FRAMES:
+        norm_spec = norm_spec[:, :TARGET_FRAMES]
+    elif norm_spec.shape[1] < TARGET_FRAMES:
+        pad_width = TARGET_FRAMES - norm_spec.shape[1]
+        norm_spec = np.pad(norm_spec, ((0, 0), (0, pad_width)), mode='constant')
+        
     return norm_spec

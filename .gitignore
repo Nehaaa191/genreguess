@@ -1,0 +1,4 @@
+data/raw/genres_original/
+__pycache__/
+*.pyc
+.env

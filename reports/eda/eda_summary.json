@@ -1,0 +1,18 @@
+{
+    "total_tracks": 1000,
+    "classes": 10,
+    "sample_rate": 22050,
+    "track_duration_seconds": 30.013333333333332,
+    "track_counts": {
+        "blues": 100,
+        "classical": 100,
+        "country": 100,
+        "disco": 100,
+        "hiphop": 100,
+        "jazz": 100,
+        "metal": 100,
+        "pop": 100,
+        "reggae": 100,
+        "rock": 100
+    }
+}

@@ -38,6 +38,14 @@ class GTZANSpectrogramDataset(Dataset):
             # Fallback if corrupted or missing: zero tensor of expected shape
             spec = np.zeros((128, 1250), dtype=np.float32)
             
+        # Enforce exact temporal dimension to avoid dataloader collation errors
+        TARGET_FRAMES = 1250
+        if spec.shape[1] > TARGET_FRAMES:
+            spec = spec[:, :TARGET_FRAMES]
+        elif spec.shape[1] < TARGET_FRAMES:
+            pad_width = TARGET_FRAMES - spec.shape[1]
+            spec = np.pad(spec, ((0, 0), (0, pad_width)), mode='constant')
+            
         if self.augment:
             spec = spec_augment(spec)
             

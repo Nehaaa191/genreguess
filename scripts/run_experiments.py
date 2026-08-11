@@ -1,6 +1,7 @@
 import os
 import sys
 import torch
+import torch.nn as nn
 import json
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -131,13 +132,30 @@ def evaluate_best(best_model_path, save_dir):
 if __name__ == "__main__":
     import torch.nn as nn # need it globally for evaluate_best
     
-    # 1. Baseline CNN
-    val_v1, path_v1 = run_experiment("v1_baseline", lr=1e-3, weight_decay=0.0, augment=False, num_epochs=1)
+    experiments = [
+        {"name": "v1_baseline", "lr": 1e-3, "weight_decay": 0.0, "augment": False, "epochs": 30},
+        {"name": "v2_regularized", "lr": 1e-3, "weight_decay": 1e-4, "augment": False, "epochs": 30},
+        {"name": "v3_augmented", "lr": 1e-3, "weight_decay": 1e-4, "augment": True, "epochs": 30}
+    ]
     
-    # Normally we would run more epochs and multiple experiments. 
-    # For demonstration/grading, we simulate short runs to verify the pipeline.
-    # val_v2, path_v2 = run_experiment("v2_reg", lr=1e-3, weight_decay=1e-4, augment=False, num_epochs=1)
-    # val_v3, path_v3 = run_experiment("v3_aug", lr=1e-3, weight_decay=1e-4, augment=True, num_epochs=1)
+    best_overall_val = 0.0
+    best_overall_path = ""
     
-    # Let's just evaluate v1 as best for the pipeline verification
-    evaluate_best(path_v1, "reports/deep_learning")
+    for exp in experiments:
+        val_acc, model_path = run_experiment(
+            exp["name"], 
+            lr=exp["lr"], 
+            weight_decay=exp["weight_decay"], 
+            augment=exp["augment"], 
+            num_epochs=exp["epochs"]
+        )
+        if val_acc > best_overall_val:
+            best_overall_val = val_acc
+            best_overall_path = model_path
+            
+    print(f"\n=========================================")
+    print(f"Best model found: {best_overall_path} with Val Acc: {best_overall_val:.4f}")
+    print(f"=========================================\n")
+    
+    # Evaluate the single best model on the test set
+    evaluate_best(best_overall_path, "reports/deep_learning")
