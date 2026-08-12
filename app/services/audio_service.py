@@ -4,6 +4,7 @@ import sys
 import torch
 import numpy as np
 import librosa
+import soundfile as sf
 from app.config import PREPROCESSING_CONFIG_PATH
 import json
 
@@ -22,27 +23,47 @@ def process_audio_bytes(file_bytes: bytes) -> torch.Tensor:
         
     sr = config["sample_rate"]
     
-    # librosa.load can read from file-like objects using soundfile backend
-    # but to be safe with any format librosa supports, we can write to temp
-    # However, BytesIO is often fine if it's a standard WAV
     try:
-        waveform, sr_loaded = librosa.load(io.BytesIO(file_bytes), sr=sr, mono=True)
+        with io.BytesIO(file_bytes) as f:
+            info = sf.info(f)
+            sr_loaded = info.samplerate
+            
+            samples_per_track = sr * config["duration"]
+            samples_per_track_orig = int(sr_loaded * config["duration"])
+            total_samples = info.frames
+            
+            if total_samples > samples_per_track_orig:
+                start_frame = (total_samples - samples_per_track_orig) // 2
+                frames_to_read = samples_per_track_orig
+            else:
+                start_frame = 0
+                frames_to_read = total_samples
+                
+            f.seek(0)
+            waveform, _ = sf.read(f, start=start_frame, frames=frames_to_read, dtype='float32', always_2d=True)
+            
     except Exception as e:
         raise ValueError(f"Failed to read audio file: {e}")
+        
+    # Convert to mono
+    if waveform.shape[1] > 1:
+        waveform = waveform.mean(axis=1)
+    else:
+        waveform = waveform.squeeze()
+        
+    # Resample if needed
+    if sr_loaded != sr:
+        waveform = librosa.resample(waveform, orig_sr=sr_loaded, target_sr=sr)
         
     if len(waveform) < sr * 0.1:  # less than 0.1 seconds
         raise ValueError("Audio is too short.")
         
-    # We must use exactly the same logic as training
-    samples_per_track = sr * config["duration"]
-    
-    # 1. Crop/Pad
-    if len(waveform) > samples_per_track:
-        start = (len(waveform) - samples_per_track) // 2
-        waveform = waveform[start : start + samples_per_track]
-    elif len(waveform) < samples_per_track:
-        pad_width = samples_per_track - len(waveform)
+    # 1. Pad if necessary (cropping is already done by soundfile)
+    if len(waveform) < samples_per_track:
+        pad_width = int(samples_per_track - len(waveform))
         waveform = np.pad(waveform, (0, pad_width), mode='constant')
+    elif len(waveform) > samples_per_track:
+        waveform = waveform[:int(samples_per_track)]
         
     # 2. Normalize
     waveform = normalize_amplitude(waveform)
@@ -64,3 +85,4 @@ def process_audio_bytes(file_bytes: bytes) -> torch.Tensor:
     tensor = torch.tensor(norm_spec, dtype=torch.float32)
     tensor = tensor.unsqueeze(0).unsqueeze(0)
     return tensor
+
